@@ -1,9 +1,9 @@
 import { Header } from "@/components/header"
 import { NoteEditorWrapper } from "@/components/note-editor-wrapper"
-import { getAllTags, getAllCategories } from "@/lib/actions/tags-categories"
+import { getUserTags, getUserCategories } from "@/lib/actions/tags-categories"
 
 export default async function AddNotePage() {
-  const [allTags, allCategories] = await Promise.all([getAllTags(), getAllCategories()])
+  const [allTags, allCategories] = await Promise.all([getUserTags(), getUserCategories()])
 
   return (
     <>

@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { UserMenu } from "@/components/auth/user-menu"
 
 export function Header() {
   const pathname = usePathname()
@@ -28,9 +29,18 @@ export function Header() {
           )}
 
           {pathname !== "/" && (
-            <Link href="/" className="text-primary hover:bg-primary/10 px-4 py-2 rounded-lg transition-colors">
-              ← Back
-            </Link>
+            <div className="flex items-center gap-4">
+              <Link href="/" className="text-primary hover:bg-primary/10 px-4 py-2 rounded-lg transition-colors">
+                ← Back
+              </Link>
+              <div className="border-l border-gray-200 pl-4">
+                <UserMenu />
+              </div>
+            </div>
+          )}
+
+          {pathname === "/" && (
+            <UserMenu />
           )}
         </div>
       </div>
