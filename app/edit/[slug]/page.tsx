@@ -1,5 +1,5 @@
 import { getNoteBySlug } from "@/lib/actions/notes"
-import { getAllTags, getAllCategories } from "@/lib/actions/tags-categories"
+import { getUserTags, getUserCategories } from "@/lib/actions/tags-categories"
 import Link from "next/link"
 import { EditPageContent } from "./edit-page-content"
 
@@ -8,8 +8,8 @@ export default async function EditNotePage({ params }: { params: Promise<{ slug:
 
   const [note, allTags, allCategories] = await Promise.all([
     getNoteBySlug(slug),
-    getAllTags(),
-    getAllCategories(),
+    getUserTags(),
+    getUserCategories(),
   ])
 
   if (!note) {

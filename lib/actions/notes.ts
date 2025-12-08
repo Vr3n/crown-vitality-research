@@ -1,8 +1,10 @@
 "use server"
 
 import { db, notes, noteTags, noteReferences, tags, categories } from "@/lib/db"
-import { eq, desc } from "drizzle-orm"
+import { eq, desc, and } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
+import { auth } from "@/lib/auth"
+import { headers } from "next/headers"
 
 // Helper function to generate slug from title
 function generateSlug(title: string): string {
@@ -28,13 +30,24 @@ export type NoteWithRelations = {
   updatedAt: Date | null
 }
 
-// Get all notes with their relations
+// Get all notes with their relations (filtered by current user)
 export async function getNotes(
   search?: string,
   tagFilter?: string,
   categoryFilter?: string,
 ): Promise<NoteWithRelations[]> {
+  // Get current user session
+  const headersList = await headers()
+  const session = await auth.api.getSession({
+    headers: headersList,
+  })
+
+  if (!session) {
+    return []
+  }
+
   let notesResult = await db.query.notes.findMany({
+    where: eq(notes.userId, session.user.id),
     orderBy: [desc(notes.createdAt)],
     with: {
       category: true,
@@ -85,10 +98,19 @@ export async function getNotes(
   }))
 }
 
-// Get a single note by ID
+// Get a single note by ID (with user ownership check)
 export async function getNoteById(id: string): Promise<NoteWithRelations | null> {
+  const headersList = await headers()
+  const session = await auth.api.getSession({
+    headers: headersList,
+  })
+
+  if (!session) {
+    return null
+  }
+
   const note = await db.query.notes.findFirst({
-    where: eq(notes.id, id),
+    where: and(eq(notes.id, id), eq(notes.userId, session.user.id)),
     with: {
       category: true,
       noteTags: {
@@ -120,10 +142,19 @@ export async function getNoteById(id: string): Promise<NoteWithRelations | null>
   }
 }
 
-// Get a single note by slug
+// Get a single note by slug (with user ownership check)
 export async function getNoteBySlug(slug: string): Promise<NoteWithRelations | null> {
+  const headersList = await headers()
+  const session = await auth.api.getSession({
+    headers: headersList,
+  })
+
+  if (!session) {
+    return null
+  }
+
   const note = await db.query.notes.findFirst({
-    where: eq(notes.slug, slug),
+    where: and(eq(notes.slug, slug), eq(notes.userId, session.user.id)),
     with: {
       category: true,
       noteTags: {
@@ -155,7 +186,7 @@ export async function getNoteBySlug(slug: string): Promise<NoteWithRelations | n
   }
 }
 
-// Create a new note
+// Create a new note (associated with current user)
 export async function createNote(data: {
   title: string
   content: string
@@ -164,6 +195,15 @@ export async function createNote(data: {
   references: { type: "url" | "book"; value: string }[]
 }): Promise<{ success: boolean; noteId?: string; error?: string }> {
   try {
+    // Get current user session
+    const headersList = await headers()
+    const session = await auth.api.getSession({
+      headers: headersList,
+    })
+
+    if (!session) {
+      return { success: false, error: "Unauthorized" }
+    }
     // Generate slug from title with uniqueness check
     let slug = generateSlug(data.title)
     let slugCounter = 1
@@ -185,7 +225,7 @@ export async function createNote(data: {
       if (existingCategory) {
         categoryId = existingCategory.id
       } else {
-        const [newCategory] = await db.insert(categories).values({ name: data.categoryName }).returning()
+        const [newCategory] = await db.insert(categories).values({ name: data.categoryName, userId: session.user.id }).returning()
         categoryId = newCategory.id
       }
     }
@@ -198,6 +238,7 @@ export async function createNote(data: {
         title: data.title,
         content: data.content,
         categoryId,
+        userId: session.user.id,
       })
       .returning()
 
@@ -210,7 +251,7 @@ export async function createNote(data: {
       if (existingTag) {
         tagId = existingTag.id
       } else {
-        const [newTag] = await db.insert(tags).values({ name: tagName }).returning()
+        const [newTag] = await db.insert(tags).values({ name: tagName, userId: session.user.id }).returning()
         tagId = newTag.id
       }
       // Create note-tag relation
@@ -236,7 +277,7 @@ export async function createNote(data: {
   }
 }
 
-// Update an existing note
+// Update an existing note (with ownership verification)
 export async function updateNote(
   id: string,
   slug: string,
@@ -249,6 +290,24 @@ export async function updateNote(
   },
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    // Get current user session
+    const headersList = await headers()
+    const session = await auth.api.getSession({
+      headers: headersList,
+    })
+
+    if (!session) {
+      return { success: false, error: "Unauthorized" }
+    }
+
+    // Verify note ownership
+    const note = await db.query.notes.findFirst({
+      where: eq(notes.id, id),
+    })
+
+    if (!note || note.userId !== session.user.id) {
+      return { success: false, error: "Unauthorized" }
+    }
     // Handle category
     let categoryId: string | null = null
     if (data.categoryName) {
@@ -258,7 +317,7 @@ export async function updateNote(
       if (existingCategory) {
         categoryId = existingCategory.id
       } else {
-        const [newCategory] = await db.insert(categories).values({ name: data.categoryName }).returning()
+        const [newCategory] = await db.insert(categories).values({ name: data.categoryName, userId: session.user.id }).returning()
         categoryId = newCategory.id
       }
     }
@@ -284,7 +343,7 @@ export async function updateNote(
       if (existingTag) {
         tagId = existingTag.id
       } else {
-        const [newTag] = await db.insert(tags).values({ name: tagName }).returning()
+        const [newTag] = await db.insert(tags).values({ name: tagName, userId: session.user.id }).returning()
         tagId = newTag.id
       }
       await db.insert(noteTags).values({ noteId: id, tagId })
@@ -311,9 +370,27 @@ export async function updateNote(
   }
 }
 
-// Delete a note
+// Delete a note (with ownership verification)
 export async function deleteNote(id: string): Promise<{ success: boolean; error?: string }> {
   try {
+    // Get current user session
+    const headersList = await headers()
+    const session = await auth.api.getSession({
+      headers: headersList,
+    })
+
+    if (!session) {
+      return { success: false, error: "Unauthorized" }
+    }
+
+    // Verify note ownership
+    const note = await db.query.notes.findFirst({
+      where: eq(notes.id, id),
+    })
+
+    if (!note || note.userId !== session.user.id) {
+      return { success: false, error: "Unauthorized" }
+    }
     await db.delete(notes).where(eq(notes.id, id))
     revalidatePath("/")
     return { success: true }

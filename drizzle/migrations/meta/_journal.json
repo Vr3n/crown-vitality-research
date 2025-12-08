@@ -15,6 +15,20 @@
       "when": 1765189119795,
       "tag": "0001_chemical_mad_thinker",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1765198093688,
+      "tag": "0002_cool_sabra",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1765200121468,
+      "tag": "0003_overrated_nightmare",
+      "breakpoints": true
     }
   ]
 }

@@ -3,7 +3,7 @@ import { NoteCard } from "@/components/note-card"
 import { Header } from "@/components/header"
 import { NotesFilter } from "@/components/notes-filter"
 import { getNotes } from "@/lib/actions/notes"
-import { getAllTags, getAllCategories } from "@/lib/actions/tags-categories"
+import { getUserTags, getUserCategories } from "@/lib/actions/tags-categories"
 
 export default async function NotesPage({
   searchParams,
@@ -17,8 +17,8 @@ export default async function NotesPage({
 
   const [notes, allTags, allCategories] = await Promise.all([
     getNotes(search, tagFilter, categoryFilter),
-    getAllTags(),
-    getAllCategories(),
+    getUserTags(),
+    getUserCategories(),
   ])
 
   return (
